@@ -1,0 +1,2939 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trash Tracker</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Trash Tracker">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-database-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-storage-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+
+    <style>
+        /* Color Variables - Customizable */
+        :root {
+            --color-cream: #030303;
+            --color-sage: #030303;
+            --color-terracotta: #123458;
+            --color-charcoal: #D4C9BE;
+
+            /* Gradient combinations */
+            --gradient-primary: linear-gradient(135deg, var(--color-sage) 0%, var(--color-terracotta) 100%);
+            --gradient-secondary: linear-gradient(135deg, var(--color-charcoal) 0%, var(--color-charcoal) 100%);
+            --gradient-light: linear-gradient(135deg, var(--color-cream) 0%, var(--color-sage) 100%);
+
+            /* UI Colors */
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+            --color-info: #3b82f6;
+
+            /* Text Colors */
+            --text-primary: var(--color-charcoal);
+            --text-secondary: #6b7280;
+            --text-light: #ffffff;
+
+            /* Surface Colors */
+            --surface-primary: rgba(255, 255, 255, 0.95);
+            --surface-secondary: rgba(255, 255, 255, 0.8);
+            --surface-overlay: rgba(0, 0, 0, 0.5);
+
+            /* Shadows */
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.2);
+            --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.25);
+
+            /* Border Radius */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+            --radius-full: 50px;
+
+            /* Spacing */
+            --space-xs: 0.25rem;
+            --space-sm: 0.5rem;
+            --space-md: 1rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2rem;
+            --space-2xl: 3rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--color-cream);
+            min-height: 100vh;
+            overflow-x: hidden;
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--text-primary);
+        }
+
+        /* Three.js Background Canvas */
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--gradient-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: var(--text-light);
+        }
+
+        .loading-logo {
+            font-size: 4rem;
+            margin-bottom: var(--space-lg);
+            animation: bounce 2s infinite;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+        }
+
+        .loading-text {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: var(--space-xl);
+            letter-spacing: 0.5px;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid var(--text-light);
+            border-radius: var(--radius-full);
+            animation: spin 1s linear infinite;
+            margin-bottom: var(--space-lg);
+        }
+
+        .loading-progress {
+            width: 85%;
+            max-width: 320px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--text-light), rgba(255, 255, 255, 0.8));
+            border-radius: var(--radius-sm);
+            width: 0%;
+            animation: loading-progress 3s ease-in-out forwards;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        @keyframes bounce {
+
+            0%,
+            20%,
+            50%,
+            80%,
+            100% {
+                transform: translateY(0);
+            }
+
+            40% {
+                transform: translateY(-12px);
+            }
+
+            60% {
+                transform: translateY(-6px);
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes loading-progress {
+            0% {
+                width: 0%;
+            }
+
+            30% {
+                width: 40%;
+            }
+
+            70% {
+                width: 80%;
+            }
+
+            100% {
+                width: 100%;
+            }
+        }
+
+        /* Google Sign-In Screen */
+        .auth-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--gradient-primary);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+            color: var(--text-light);
+            text-align: center;
+            padding: var(--space-xl);
+        }
+
+        .auth-card {
+            background: var(--surface-primary);
+            padding: var(--space-2xl);
+            border-radius: var(--radius-xl);
+            color: var(--text-primary);
+            max-width: 400px;
+            width: 100%;
+            box-shadow: var(--shadow-xl);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .auth-title {
+            font-size: 2.25rem;
+            margin-bottom: var(--space-md);
+            font-weight: 800;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .auth-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-xl);
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .google-signin-btn {
+            background: var(--gradient-secondary);
+            color: var(--text-light);
+            border: none;
+            padding: var(--space-lg) var(--space-xl);
+            border-radius: var(--radius-md);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-md);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-md);
+        }
+
+        .google-signin-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .google-signin-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Header */
+        .header {
+            background: var(--surface-primary);
+            backdrop-filter: blur(20px);
+            padding: var(--space-md) var(--space-lg);
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            font-weight: 800;
+            flex: 1;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-full);
+            border: 3px solid var(--color-sage);
+            object-fit: cover;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Content Area */
+        .content {
+            padding-top: 80px;
+            padding-bottom: 90px;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .tab-content {
+            display: none;
+            height: calc(100vh - 170px);
+            padding: var(--space-lg);
+            animation: fadeIn 0.3s ease-in-out;
+            overflow-y: scroll;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Home Tab */
+        .home-content {
+            text-align: center;
+            padding: var(--space-lg);
+            color: var(--text-primary);
+        }
+
+        .welcome-card {
+            background: var(--surface-primary);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            margin: var(--space-lg) 0;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .welcome-card h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: var(--space-md);
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .welcome-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 1.05rem;
+        }
+
+        .ai-assistant-btn {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            border: none;
+            padding: var(--space-lg) var(--space-xl);
+            border-radius: var(--radius-lg);
+            font-size: 1.15rem;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            margin: var(--space-lg) 0;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-assistant-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .ai-assistant-btn:hover::before {
+            left: 100%;
+        }
+
+        .ai-assistant-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-lg);
+            margin: var(--space-xl) 0;
+        }
+
+        .stat-card {
+            background: var(--surface-primary);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            text-align: center;
+            color: var(--text-primary);
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--space-sm);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        /* AI Chatbot Screen */
+        .chatbot-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--color-cream);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+        }
+
+        .chatbot-header {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            padding: var(--space-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--space-lg);
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(20px);
+        }
+
+        .back-btn {
+            height: 50px;
+            width: 50px;
+
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: var(--text-light);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: var(--space-md);
+            border-radius: var(--radius-full);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        .chatbot-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            flex: 1;
+        }
+
+        .api-status {
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .api-status.connected {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10f2a5;
+            transform: scale(0.9);
+        }
+
+        .api-status.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ff6b6b;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-lg);
+            background: var(--color-cream);
+        }
+
+        .chat-message {
+            margin-bottom: var(--space-lg);
+            display: flex;
+            gap: var(--space-md);
+            animation: slideInUp 0.3s ease-out;
+        }
+
+        .chat-message.user {
+            flex-direction: row-reverse;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-content {
+            max-width: 85%;
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            word-wrap: break-word;
+            box-shadow: var(--shadow-sm);
+            line-height: 1.6;
+        }
+
+        .chat-message.bot .message-content {
+            background: var(--surface-primary);
+            border-bottom-left-radius: var(--radius-sm);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .chat-message.user .message-content {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            border-bottom-right-radius: var(--radius-sm);
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: var(--gradient-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: var(--text-light);
+            flex-shrink: 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chat-input-area {
+            padding: var(--space-lg);
+            background: var(--surface-primary);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            gap: var(--space-md);
+            align-items: flex-end;
+            backdrop-filter: blur(20px);
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: var(--space-lg);
+            border: 2px solid rgba(199, 197, 166, 0.3);
+            border-radius: var(--radius-xl);
+            resize: none;
+            min-height: 56px;
+            max-height: 120px;
+            font-size: 1rem;
+            outline: none;
+            background: var(--surface-secondary);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: var(--color-sage);
+            box-shadow: 0 0 0 3px rgba(199, 197, 166, 0.1);
+        }
+
+        .send-btn,
+        .image-upload-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: none;
+            box-shadow: var(--shadow-md);
+        }
+
+        .send-btn {
+            background: #123458;
+            color: var(--text-light);
+        }
+
+        .image-upload-btn {
+            background: #D4C9BE;
+            color: var(--text-light);
+            margin-right: var(--space-sm);
+        }
+
+        .send-btn:hover,
+        .image-upload-btn:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .send-btn:disabled {
+            background: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .uploaded-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: var(--radius-md);
+            margin: var(--space-sm) 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Map Tab */
+        .map-container {
+            height: 100%;
+            position: relative;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .control-btn {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            border: none;
+            padding: var(--space-lg);
+            border-radius: var(--radius-full);
+            width: 64px;
+            height: 64px;
+            font-size: 1.4rem;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.15);
+            box-shadow: var(--shadow-xl);
+        }
+
+        /* Leaderboard Tab */
+        .leaderboard {
+            background: var(--surface-primary);
+            border-radius: var(--radius-lg);
+            padding: 0;
+            max-height: 100%;
+            overflow-y: auto;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .leaderboard-header {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        }
+
+        .leaderboard-header h2 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            margin-bottom: var(--space-sm);
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: var(--space-lg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .leaderboard-item:hover {
+            background: rgba(199, 197, 166, 0.05);
+            transform: translateX(5px);
+        }
+
+        .rank {
+            font-size: 1.4rem;
+            font-weight: 900;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-right: var(--space-lg);
+            min-width: 40px;
+        }
+
+        .user-info {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        .user-avatar-small {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-full);
+            object-fit: cover;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .username {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        .points {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 2px;
+        }
+
+        .score {
+            font-size: 1.4rem;
+            font-weight: 900;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Alert Tab */
+        .alerts-container {
+            max-height: 100%;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            background: var(--surface-primary);
+            margin: 0 0 var(--space-lg) 0;
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            border-left: 4px solid var(--color-error);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .alert-item:hover {
+            transform: translateX(8px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .alert-item.warning {
+            border-left-color: var(--color-warning);
+        }
+
+        .alert-item.info {
+            border-left-color: var(--color-info);
+        }
+
+        .alert-item.cleaned {
+            border-left-color: var(--color-success);
+        }
+
+        .alert-title {
+            font-weight: 700;
+            margin-bottom: var(--space-sm);
+            font-size: 1.1rem;
+        }
+
+        .alert-time {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface-primary);
+            backdrop-filter: blur(20px);
+            display: flex;
+            justify-content: space-around;
+            padding: var(--space-md) 0 calc(var(--space-md) + env(safe-area-inset-bottom)) 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: var(--space-md);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--text-secondary);
+            text-decoration: none;
+            min-width: 60px;
+            border-radius: var(--radius-md);
+            position: relative;
+            border-color: var(--surface-primary);
+
+        }
+
+        .nav-item.active {
+            color: var(--color-secondary);
+            transform: translateY(-3px);
+        }
+
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 32px;
+            height: 3px;
+            background: var(--gradient-secondary);
+            border-radius: var(--radius-sm);
+        }
+
+        .nav-icon {
+            font-size: 1.6rem;
+            margin-bottom: var(--space-xs);
+        }
+
+        .nav-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--surface-overlay);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-lg);
+            backdrop-filter: blur(10px);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--surface-primary);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 100%;
+            box-shadow: var(--shadow-xl);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-lg);
+            padding-bottom: var(--space-lg);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .close-btn {
+            background: rgba(199, 197, 166, 0.1);
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(199, 197, 166, 0.2);
+            transform: scale(1.1);
+        }
+
+        .form-group {
+            margin-bottom: var(--space-lg);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--space-sm);
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1.05rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: var(--space-lg);
+            border: 2px solid rgba(199, 197, 166, 0.3);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: var(--surface-secondary);
+            backdrop-filter: blur(10px);
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--color-sage);
+            box-shadow: 0 0 0 3px rgba(199, 197, 166, 0.1);
+        }
+
+        .btn {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            border: none;
+            padding: var(--space-lg) var(--space-xl);
+            border-radius: var(--radius-md);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            margin-top: var(--space-lg);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--gradient-secondary);
+        }
+
+        /* Popup styles */
+        .marker-popup {
+            max-width: 300px;
+        }
+
+        .popup-image {
+            width: 100%;
+            max-height: 150px;
+            object-fit: cover;
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .popup-description {
+            margin-bottom: var(--space-lg);
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .popup-btn {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            border: none;
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-right: var(--space-sm);
+            margin-bottom: var(--space-sm);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .popup-btn.cleaning {
+            background: var(--gradient-secondary);
+        }
+
+        .popup-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Config Panel */
+        .config-panel {
+            background: var(--surface-primary);
+            padding: var(--space-lg);
+            margin: var(--space-lg) 0;
+            border-radius: var(--radius-md);
+            border: 2px solid rgba(199, 197, 166, 0.3);
+            backdrop-filter: blur(20px);
+        }
+
+        .config-input {
+            width: 100%;
+            padding: var(--space-md);
+            margin: var(--space-sm) 0;
+            border: 1px solid rgba(199, 197, 166, 0.3);
+            border-radius: var(--radius-sm);
+            font-size: 0.95rem;
+            background: var(--surface-secondary);
+        }
+
+        .config-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: var(--space-xs);
+        }
+
+        .save-config-btn {
+            background: var(--gradient-primary);
+            color: var(--text-light);
+            border: none;
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-top: var(--space-sm);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+        }
+
+        .save-config-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Loading spinner */
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 3000;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(199, 197, 166, 0.3);
+            border-top: 4px solid var(--color-sage);
+            border-radius: var(--radius-full);
+            animation: spin 1s linear infinite;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            padding: var(--space-lg);
+            color: var(--text-secondary);
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: var(--space-xs);
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--color-sage);
+            border-radius: var(--radius-full);
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typing {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+
+            40% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--color-error);
+            padding: var(--space-lg);
+            border-radius: var(--radius-md);
+            margin: var(--space-lg) 0;
+            border-left: 4px solid var(--color-error);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.25rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                padding: var(--space-lg);
+            }
+
+            .auth-card {
+                padding: var(--space-xl);
+            }
+
+            .loading-logo {
+                font-size: 3rem;
+            }
+
+            .loading-text {
+                font-size: 1.5rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .stats-grid {
+                gap: var(--space-md);
+            }
+
+            .stat-card {
+                padding: var(--space-lg);
+            }
+
+            .stat-number {
+                font-size: 2rem;
+            }
+        }
+
+        /* iOS Safe Area Support */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .bottom-nav {
+                padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
+            }
+
+            .content {
+                padding-bottom: calc(90px + env(safe-area-inset-bottom));
+            }
+        }
+
+        /* Dark mode support (if needed) */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --text-primary: #f8fafc;
+                --text-secondary: #cbd5e0;
+                --surface-primary: rgba(74, 74, 74, 0.95);
+                --surface-secondary: rgba(74, 74, 74, 0.8);
+            }
+        }
+
+        /* Accessibility improvements */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Focus styles for keyboard navigation */
+        
+      .btn:focus,
+        .nav-item:focus,
+        .control-btn:focus {
+            outline: 2px solid #D4C9BE;
+            outline-offset: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Three.js Particles Background -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-logo">🗑️</div>
+        <div class="loading-text">Trash Tracker</div>
+        <div class="loading-spinner"></div> 
+        <div class="loading-progress">
+            <div class="loading-bar"></div>
+        </div>
+    </div>
+
+    <!-- Google Sign-In Screen -->
+    <div class="auth-screen" id="authScreen">
+        <div class="auth-card">
+            <div class="auth-title"><span style=" background-clip: text;">🗑️ </span>Trash Tracker</div>
+            <div class="auth-subtitle">Join the community fighting for a cleaner environment</div>
+            <button class="google-signin-btn" onclick="signInWithGoogle()">
+                <span>🔐</span>
+                <span style="color: #030303;">Continue with Google</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="container" id="mainApp" style="display: none;">
+        <!-- Header -->
+        <div class="header">
+            <h1>🗑️ Trash Tracker</h1>
+            <img id="userAvatar" class="user-avatar" src="" alt="User" style="display: none;">
+        </div>
+
+        <!-- Content Area -->
+        <div class="content">
+            <!-- Home Tab -->
+            <div class="tab-content active" id="home">
+                <div class="home-content">
+                    <div class="welcome-card">
+                        <h2 id="welcomeMessage">Welcome to Trash Tracker!</h2>
+                        <p>Help keep our environment clean by reporting and cleaning trash spots in your area.</p>
+                    </div>
+
+                    <button class="ai-assistant-btn" onclick="openChatbot()">
+                        <span>🤖</span>
+                        AI Waste Management Assistant
+                    </button>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalPoints">0</div>
+                            <div class="stat-label">Your Points</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalReports">0</div>
+                            <div class="stat-label">Trash Reported</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="totalCleaned">0</div>
+                            <div class="stat-label">Spots Cleaned</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="nearbyTrash">0</div>
+                            <div class="stat-label">Nearby Trash</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map Tab -->
+            <div class="tab-content" id="map-tab">
+                <div class="map-container">
+                    <div id="map"></div>
+                    <div class="map-controls">
+                        <button class="control-btn" onclick="addTrashMarker()" title="Report Trash">
+                            📍
+                        </button>
+                        <button class="control-btn" onclick="getCurrentLocation()" title="My Location">
+                            🎯
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leaderboard Tab -->
+            <div class="tab-content" id="leaderboard">
+                <div class="leaderboard">
+                    <div class="leaderboard-header">
+                        <h2>🏆 Leaderboard</h2>
+                        <p>Top environmental heroes</p>
+                    </div>
+                    <div id="leaderboardList">
+                        <!-- Leaderboard items will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert Tab -->
+            <div class="tab-content" id="alerts">
+                <div class="alerts-container" id="alertsList">
+                    <!-- Alerts will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <a href="#" class="nav-item active" onclick="switchTab('home', this)">
+                <div class="nav-icon">🏠</div>
+                <div class="nav-label">Home</div>
+            </a>
+            <a href="#" class="nav-item" onclick="switchTab('map-tab', this)">
+                <div class="nav-icon">🗺️</div>
+                <div class="nav-label">Map</div>
+            </a>
+            <a href="#" class="nav-item" onclick="switchTab('leaderboard', this)">
+                <div class="nav-icon">🏆</div>
+                <div class="nav-label">Leaderboard</div>
+            </a>
+            <a href="#" class="nav-item" onclick="switchTab('alerts', this)">
+                <div class="nav-icon">🚨</div>
+                <div class="nav-label">Alert</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- AI Chatbot Screen -->
+    <div class="chatbot-screen" id="chatbotScreen">
+        <div class="chatbot-header">
+            <button class="back-btn" onclick="closeChatbot()">←</button>
+            <div class="chatbot-title">🤖 AI Waste Assistant</div>
+            <div class="api-status" id="apiStatus">Connecting...</div>
+        </div>
+
+        <!-- API Configuration Panel -->
+        <div class="config-panel" id="configPanel">
+            <label class="config-label">OpenRouter API Key:</label>
+            <input type="password" class="config-input" id="openrouterKey" placeholder="Enter your OpenRouter API key">
+
+            <label class="config-label">Gemini API Key:</label>
+            <input type="password" class="config-input" id="geminiKey" placeholder="Enter your Gemini API key">
+
+            <button class="save-config-btn" onclick="saveApiKeys()">Save API Keys</button>
+
+            <div style="margin-top: var(--space-lg); font-size: 0.85rem; color: var(--text-secondary);">
+                <p><strong>Instructions:</strong></p>
+                <p>1. Get OpenRouter API key from <a href="https://openrouter.ai" target="_blank">openrouter.ai</a></p>
+                <p>2. Get Gemini API key from <a href="https://makersuite.google.com/app/apikey" target="_blank">Google
+                        AI Studio</a></p>
+                <p>3. Keys are stored locally in your browser</p>
+            </div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="chat-message bot">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    Hi! I'm your AI Waste Management Assistant powered by LLaMA 3.3 and Gemini Vision. I can help you
+                    with questions about garbage disposal, recycling, composting, and environmental best practices. You
+                    can also upload images of waste items and I'll help identify the best disposal method!
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;"
+                onchange="handleImageUpload(event)">
+            <button class="image-upload-btn" onclick="document.getElementById('imageUpload').click()"
+                title="Upload Image">
+                📷
+            </button>
+            <textarea id="chatInput" class="chat-input"
+                placeholder="Ask me about waste management, recycling, or upload an image..."
+                onkeydown="handleChatKeydown(event)"></textarea>
+            <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                ➤
+            </button>
+        </div>
+    </div>
+
+    <!-- Add Trash Modal -->
+    <div class="modal" id="addTrashModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Report Trash Spot</h3>
+                <button class="close-btn" onclick="closeModal('addTrashModal')">&times;</button>
+            </div>
+            <form id="trashForm">
+                <div class="form-group">
+                    <label class="form-label">Description (Optional)</label>
+                    <textarea class="form-input" id="trashDescription" rows="3"
+                        placeholder="Describe the trash situation..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Take a Photo</label>
+                    <input type="file" class="form-input" id="trashPhoto" accept="image/*" capture="camera">
+                </div>
+                <button type="submit" class="btn">Report Trash Spot</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cleaning Modal -->
+    <div class="modal" id="cleaningModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Upload Cleaning Photo</h3>
+                <button class="close-btn" onclick="closeModal('cleaningModal')">&times;</button>
+            </div>
+            <form id="cleaningForm">
+                <div class="form-group">
+                    <label class="form-label">Take a photo showing the cleaned area</label>
+                    <input type="file" class="form-input" id="cleaningPhoto" accept="image/*" capture="camera" required>
+                </div>
+                <button type="submit" class="btn">Complete Cleaning</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <script>
+        // Three.js Particles Background
+        let scene, camera, renderer, particles;
+        let mouseX = 0, mouseY = 0;
+        let windowHalfX = window.innerWidth / 2;
+        let windowHalfY = window.innerHeight / 2;
+
+        function signInWithGoogle() {
+            if (!auth) {
+                // Fallback for demo
+                currentUser = {
+                    displayName: 'Demo User',
+                    email: 'demo@example.com',
+                    photoURL: 'https://via.placeholder.com/40',
+                    uid: 'demo-user-' + Date.now()
+                };
+                document.getElementById('authScreen').style.display = 'none';
+                document.getElementById('mainApp').style.display = 'block';
+                updateUserUI();
+                initializeApp();
+                return;
+            }
+
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider)
+                .then((result) => {
+                    currentUser = result.user;
+
+                    // Save user data to Firebase
+                    database.ref(`users/${currentUser.uid}`).set({
+                        displayName: currentUser.displayName,
+                        email: currentUser.email,
+                        photoURL: currentUser.photoURL,
+                        joinDate: Date.now(),
+                        totalPoints: 0,
+                        totalReports: 0,
+                        totalCleaned: 0
+                    });
+
+                    document.getElementById('authScreen').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                    updateUserUI();
+                    initializeApp();
+                })
+                .catch((error) => {
+                    console.error('Sign-in error:', error);
+                    addAlert('Sign-in failed. Please try again.', 'error');
+                });
+        }
+
+        function updateUserUI() {
+            if (currentUser) {
+                const welcomeMsg = document.getElementById('welcomeMessage');
+                const userAvatar = document.getElementById('userAvatar');
+
+                welcomeMsg.textContent = `Welcome back, ${currentUser.displayName.split(' ')[0]}!`;
+
+                if (currentUser.photoURL) {
+                    userAvatar.src = currentUser.photoURL;
+                    userAvatar.style.display = 'block';
+                }
+            }
+        }
+
+        function initializeApp() {
+            updateStats();
+            checkNearbyTrash();
+            setInterval(checkNearbyTrash, 30000);
+            loadUserStats();
+        }
+
+        // Load user stats from Firebase
+        function loadUserStats() {
+            if (database && currentUser) {
+                database.ref(`users/${currentUser.uid}`).on('value', (snapshot) => {
+                    const userData = snapshot.val();
+                    if (userData) {
+                        userStats = {
+                            totalReports: userData.totalReports || 0,
+                            totalCleaned: userData.totalCleaned || 0,
+                            totalPoints: userData.totalPoints || 0
+                        };
+                        updateStats();
+                    }
+                });
+            }
+        }
+
+        // AI Chatbot Functions
+        function openChatbot() {
+            document.getElementById('chatbotScreen').style.display = 'flex';
+
+            // Show/hide config panel based on API key status
+            if (!apiKeysConfigured) {
+                document.getElementById('configPanel').style.display = 'block';
+            } else {
+                document.getElementById('configPanel').style.display = 'none';
+            }
+        }
+
+        function closeChatbot() {
+            document.getElementById('chatbotScreen').style.display = 'none';
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    currentUploadedImage = e.target.result;
+
+                    // Add image to chat
+                    addChatMessage('user', '', currentUploadedImage);
+
+                    // Process with AI
+                    processImageWithAI(file);
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function processImageWithAI(imageFile) {
+            if (!apiKeysConfigured) {
+                addChatMessage('bot', 'Please configure your API keys first to use image analysis.');
+                return;
+            }
+
+            showTypingIndicator();
+
+            try {
+                // First, analyze image with Gemini Vision
+                const imageContext = await analyzeImageWithGemini(imageFile);
+
+                // Then use LLaMA with the context for detailed response
+                const response = await queryLLaMAWithContext(
+                    "Analyze this waste item and provide disposal recommendations.",
+                    imageContext
+                );
+
+                hideTypingIndicator();
+                addChatMessage('bot', response);
+
+            } catch (error) {
+                hideTypingIndicator();
+                console.error('AI Processing Error:', error);
+                addChatMessage('bot', 'Sorry, I had trouble analyzing that image. Please check your API keys and try again.');
+            }
+        }
+
+        async function analyzeImageWithGemini(imageFile) {
+            const base64Data = await fileToBase64(imageFile);
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            {
+                                text: "Analyze this image and identify the waste items. Describe what you see in detail, including materials, condition, and any recycling symbols or markings visible. Focus on waste management context."
+                            },
+                            {
+                                inline_data: {
+                                    mime_type: imageFile.type,
+                                    data: base64Data.split(',')[1]
+                                }
+                            }
+                        ]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Gemini API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.candidates[0]?.content?.parts[0]?.text || "Could not analyze image";
+        }
+
+        async function queryLLaMAWithContext(userMessage, imageContext = null) {
+            const systemPrompt = `You are an expert waste management and environmental assistant. You help people with:
+            - Proper waste disposal methods
+            - Recycling guidelines and best practices
+            - Composting advice
+            - Environmental impact information
+            - Local waste management solutions
+            - Hazardous waste handling
+            
+            Always provide specific, actionable advice. Be encouraging about environmental responsibility.`;
+
+            let messages = [
+                { role: "system", content: systemPrompt }
+            ];
+
+            if (imageContext) {
+                messages.push({
+                    role: "user",
+                    content: `Based on this image analysis: "${imageContext}", please provide detailed waste disposal and recycling recommendations. User question: ${userMessage}`
+                });
+            } else {
+                messages.push({ role: "user", content: userMessage });
+            }
+
+            const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                    "HTTP-Referer": window.location.origin,
+                    "X-Title": "Trash Tracker AI Assistant",
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    "model": "meta-llama/llama-3.3-70b-instruct",
+                    "messages": messages,
+                    "max_tokens": 1000,
+                    "temperature": 0.7
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`OpenRouter API error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.choices[0]?.message?.content || "I couldn't generate a response. Please try again.";
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function handleChatKeydown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            if (!apiKeysConfigured) {
+                addChatMessage('bot', 'Please configure your API keys first to use the AI assistant.');
+                return;
+            }
+
+            input.value = '';
+            addChatMessage('user', message);
+
+            showTypingIndicator();
+
+            try {
+                const response = await queryLLaMAWithContext(message);
+                hideTypingIndicator();
+                addChatMessage('bot', response);
+
+            } catch (error) {
+                hideTypingIndicator();
+                console.error('Chat Error:', error);
+                addChatMessage('bot', 'Sorry, I encountered an error. Please check your API keys and try again.');
+            }
+        }
+
+        function addChatMessage(sender, message, image = null) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${sender}`;
+
+            const avatar = sender === 'bot' ? '🤖' : '👤';
+            let content = `<div class="message-avatar">${avatar}</div><div class="message-content">`;
+
+            if (image) {
+                content += `<img src="${image}" class="uploaded-image" alt="Uploaded image">`;
+            }
+
+            if (message) {
+                content += message;
+            }
+
+            content += '</div>';
+            messageDiv.innerHTML = content;
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const chatContainer = document.getElementById('chatContainer');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'chat-message bot typing-indicator';
+            typingDiv.id = 'typingIndicator';
+            typingDiv.innerHTML = `
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+
+            chatContainer.appendChild(typingDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // Tab switching
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            document.querySelectorAll('.nav-item').forEach(nav => {
+                nav.classList.remove('active');
+            });
+
+            document.getElementById(tabId).classList.add('active');
+            element.classList.add('active');
+
+            if (tabId === 'map-tab' && map) {
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 100);
+            }
+
+            if (tabId === 'leaderboard') {
+                loadLeaderboard();
+            }
+        }
+
+        // Initialize Leaflet map
+        function initializeMap() {
+            map = L.map('map').setView([28.6139, 77.2090], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            map.on('click', function (e) {
+                if (confirm('Add trash marker at this location?')) {
+                    addTrashMarkerAt(e.latlng);
+                }
+            });
+        }
+
+        // Request location permission
+        function requestLocationPermission() {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+
+                        if (map) {
+                            map.setView([userLocation.lat, userLocation.lng], 15);
+
+                            L.marker([userLocation.lat, userLocation.lng])
+                                .addTo(map)
+                                .bindPopup('Your Location')
+                                .openPopup();
+                        }
+
+                        checkNearbyTrash();
+                    },
+                    function (error) {
+                        console.error('Location permission denied:', error);
+                        addAlert('Location permission denied. Some features may not work properly.', 'warning');
+                    }
+                );
+            } else {
+                addAlert('Geolocation is not supported by this browser.', 'error');
+            }
+        }
+
+        function getCurrentLocation() {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        userLocation = { lat, lng };
+                        map.setView([lat, lng], 16);
+
+                        if (currentMarker) {
+                            map.removeLayer(currentMarker);
+                        }
+
+                        currentMarker = L.marker([lat, lng])
+                            .addTo(map)
+                            .bindPopup('Your Current Location')
+                            .openPopup();
+                    },
+                    function (error) {
+                        alert('Unable to get your location. Please check your settings.');
+                    }
+                );
+            }
+        }
+
+        function addTrashMarker() {
+            if (!userLocation) {
+                alert('Please allow location access first.');
+                requestLocationPermission();
+                return;
+            }
+
+            addTrashMarkerAt(userLocation);
+        }
+
+        function addTrashMarkerAt(latlng) {
+            window.tempTrashLocation = latlng;
+            openModal('addTrashModal');
+        }
+
+        document.getElementById('trashForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const description = document.getElementById('trashDescription').value;
+            const photoFile = document.getElementById('trashPhoto').files[0];
+
+            if (!window.tempTrashLocation) {
+                alert('Location not available. Please try again.');
+                return;
+            }
+
+            showLoading();
+
+            if (photoFile) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const base64Image = e.target.result;
+                    saveTrashMarker(window.tempTrashLocation, description, base64Image);
+                };
+                reader.readAsDataURL(photoFile);
+            } else {
+                saveTrashMarker(window.tempTrashLocation, description, null);
+            }
+        });
+
+        function saveTrashMarker(location, description, image) {
+            const trashData = {
+                lat: location.lat,
+                lng: location.lng,
+                description: description || 'No description provided',
+                image: image,
+                timestamp: Date.now(),
+                status: 'reported',
+                reportedBy: currentUser ? currentUser.uid : getUserId(),
+                reportedByName: currentUser ? currentUser.displayName : 'Anonymous',
+                cleanedBy: null,
+                cleanedByName: null,
+                cleanedImage: null,
+                points: 10
+            };
+
+            if (database) {
+                const newTrashRef = database.ref('trash').push();
+                newTrashRef.set(trashData).then(() => {
+                    hideLoading();
+                    closeModal('addTrashModal');
+                    addTrashMarkerToMap(newTrashRef.key, trashData);
+                    updateUserStats('reported');
+                    addAlert('Trash spot reported successfully! +10 points', 'info');
+                }).catch((error) => {
+                    hideLoading();
+                    alert('Error saving data: ' + error.message);
+                });
+            } else {
+                const trashId = 'trash_' + Date.now();
+                const existingTrash = JSON.parse(localStorage.getItem('trashData') || '{}');
+                existingTrash[trashId] = trashData;
+                localStorage.setItem('trashData', JSON.stringify(existingTrash));
+
+                hideLoading();
+                closeModal('addTrashModal');
+                addTrashMarkerToMap(trashId, trashData);
+                updateUserStats('reported');
+                addAlert('Trash spot reported successfully! +10 points', 'info');
+            }
+
+            document.getElementById('trashForm').reset();
+            window.tempTrashLocation = null;
+        }
+
+        function addTrashMarkerToMap(id, data) {
+            const icon = data.status === 'cleaned' ? '✅' : data.status === 'cleaning' ? '🧹' : '🗑️';
+            const color = data.status === 'cleaned' ? 'var(--color-success)' : data.status === 'cleaning' ? 'var(--color-warning)' : 'var(--color-error)';
+
+            const marker = L.marker([data.lat, data.lng], {
+                icon: L.divIcon({
+                    html: `<div style="background: ${color}; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">${icon}</div>`,
+                    className: 'custom-marker',
+                    iconSize: [32, 32]
+                })
+            }).addTo(map);
+
+            let popupContent = `
+                <div class="marker-popup">
+                    ${data.image ? `<img src="${data.image}" class="popup-image" alt="Trash photo">` : ''}
+                    <div class="popup-description">${data.description}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                        Reported: ${new Date(data.timestamp).toLocaleDateString()}<br>
+                        By: ${data.reportedByName || 'Anonymous'}
+                    </div>
+            `;
+
+            if (data.status === 'reported') {
+                popupContent += `<button class="popup-btn" onclick="startCleaning('${id}')">Start Cleaning</button>`;
+            } else if (data.status === 'cleaning') {
+                popupContent += `
+                    <div style="color: var(--color-warning); font-weight: bold; margin-bottom: 0.5rem;">🧹 Cleaning in progress...</div>
+                    <button class="popup-btn cleaning" onclick="completeCleaning('${id}')">Upload Cleaned Photo</button>
+                `;
+            } else if (data.status === 'cleaned') {
+                popupContent += `
+                    <div style="color: var(--color-success); font-weight: bold; margin-bottom: 0.5rem;">✅ Cleaned!</div>
+                    ${data.cleanedImage ? `<img src="${data.cleanedImage}" class="popup-image" alt="Cleaned photo">` : ''}
+                    <div style="color: var(--text-secondary); font-size: 0.85rem;">
+                        Cleaned by: ${data.cleanedByName || 'Anonymous'}<br>
+                        Points earned: ${data.points}
+                    </div>
+                `;
+            }
+
+            popupContent += '</div>';
+            marker.bindPopup(popupContent);
+
+            trashMarkers.push({ id, marker, data });
+        }
+
+        function startCleaning(trashId) {
+            const updateData = {
+                status: 'cleaning',
+                cleaningStarted: Date.now(),
+                cleaningBy: currentUser ? currentUser.uid : getUserId(),
+                cleaningByName: currentUser ? currentUser.displayName : 'Anonymous'
+            };
+
+            if (database) {
+                database.ref(`trash/${trashId}`).update(updateData).then(() => {
+                    loadTrashData();
+                    addAlert('Cleaning started! Take a photo when finished.', 'info');
+                });
+            } else {
+                const existingTrash = JSON.parse(localStorage.getItem('trashData') || '{}');
+                if (existingTrash[trashId]) {
+                    Object.assign(existingTrash[trashId], updateData);
+                    localStorage.setItem('trashData', JSON.stringify(existingTrash));
+                    loadTrashData();
+                    addAlert('Cleaning started! Take a photo when finished.', 'info');
+                }
+            }
+        }
+
+        function completeCleaning(trashId) {
+            window.currentCleaningId = trashId;
+            openModal('cleaningModal');
+        }
+
+        document.getElementById('cleaningForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const photoFile = document.getElementById('cleaningPhoto').files[0];
+
+            if (!photoFile) {
+                alert('Please take a photo of the cleaned area.');
+                return;
+            }
+
+            showLoading();
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const base64Image = e.target.result;
+                finalizeCleaning(window.currentCleaningId, base64Image);
+            };
+            reader.readAsDataURL(photoFile);
+        });
+
+        function finalizeCleaning(trashId, cleanedImage) {
+            const updateData = {
+                status: 'cleaned',
+                cleanedImage: cleanedImage,
+                cleanedBy: currentUser ? currentUser.uid : getUserId(),
+                cleanedByName: currentUser ? currentUser.displayName : 'Anonymous',
+                cleanedAt: Date.now()
+            };
+
+            if (database) {
+                database.ref(`trash/${trashId}`).update(updateData).then(() => {
+                    hideLoading();
+                    closeModal('cleaningModal');
+                    loadTrashData();
+                    updateUserStats('cleaned');
+
+                    addCleanupAlert(trashId);
+                    addAlert('Great job! Cleaning completed! +20 points', 'info');
+                });
+            } else {
+                const existingTrash = JSON.parse(localStorage.getItem('trashData') || '{}');
+                if (existingTrash[trashId]) {
+                    Object.assign(existingTrash[trashId], updateData);
+                    localStorage.setItem('trashData', JSON.stringify(existingTrash));
+                    hideLoading();
+                    closeModal('cleaningModal');
+                    loadTrashData();
+                    updateUserStats('cleaned');
+
+                    addCleanupAlert(trashId);
+                    addAlert('Great job! Cleaning completed! +20 points', 'info');
+                }
+            }
+
+            document.getElementById('cleaningForm').reset();
+            window.currentCleaningId = null;
+        }
+
+        function addCleanupAlert(cleanedTrashId) {
+            const alertData = {
+                id: 'cleanup_' + Date.now(),
+                type: 'cleaned',
+                title: '🎉 Area Successfully Cleaned!',
+                message: 'A trash area has been cleaned up. Tap to find the nearest trash spot that needs attention.',
+                timestamp: Date.now(),
+                cleanedTrashId: cleanedTrashId,
+                actionable: true
+            };
+
+            const alerts = JSON.parse(localStorage.getItem('alerts') || '[]');
+            alerts.unshift(alertData);
+            localStorage.setItem('alerts', JSON.stringify(alerts.slice(0, 20)));
+
+            if (document.getElementById('alerts').classList.contains('active')) {
+                loadAlerts();
+            }
+        }
+
+        function loadTrashData() {
+            trashMarkers.forEach(item => {
+                map.removeLayer(item.marker);
+            });
+            trashMarkers = [];
+
+            if (database) {
+                database.ref('trash').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        Object.keys(data).forEach(key => {
+                            addTrashMarkerToMap(key, data[key]);
+                        });
+                    }
+                });
+            } else {
+                const existingTrash = JSON.parse(localStorage.getItem('trashData') || '{}');
+                Object.keys(existingTrash).forEach(key => {
+                    addTrashMarkerToMap(key, existingTrash[key]);
+                });
+            }
+        }
+
+        function checkNearbyTrash() {
+            if (!userLocation) return;
+
+            let nearbyCount = 0;
+            trashMarkers.forEach(item => {
+                const distance = calculateDistance(
+                    userLocation.lat, userLocation.lng,
+                    item.data.lat, item.data.lng
+                );
+
+                if (distance <= 0.05 && item.data.status === 'reported') {
+                    nearbyCount++;
+                }
+            });
+
+            document.getElementById('nearbyTrash').textContent = nearbyCount;
+
+            if (nearbyCount > 0) {
+                addAlert(`${nearbyCount} trash spot(s) found within 50m of your location!`, 'warning');
+            }
+        }
+
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function updateUserStats(action) {
+            if (action === 'reported') {
+                userStats.totalReports++;
+                userStats.totalPoints += 10;
+            } else if (action === 'cleaned') {
+                userStats.totalCleaned++;
+                userStats.totalPoints += 20;
+            }
+
+            if (database && currentUser) {
+                database.ref(`users/${currentUser.uid}`).update({
+                    totalReports: userStats.totalReports,
+                    totalCleaned: userStats.totalCleaned,
+                    totalPoints: userStats.totalPoints
+                });
+            } else {
+                localStorage.setItem('userStats', JSON.stringify(userStats));
+            }
+
+            updateStats();
+        }
+
+        function updateStats() {
+            if (!database && !currentUser) {
+                const savedStats = JSON.parse(localStorage.getItem('userStats') || '{}');
+                userStats = { ...userStats, ...savedStats };
+            }
+
+            document.getElementById('totalPoints').textContent = userStats.totalPoints || 0;
+            document.getElementById('totalReports').textContent = userStats.totalReports || 0;
+            document.getElementById('totalCleaned').textContent = userStats.totalCleaned || 0;
+        }
+
+        function loadLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboardList');
+            leaderboardList.innerHTML = '';
+
+            if (database) {
+                database.ref('users').orderByChild('totalPoints').limitToLast(10).once('value', (snapshot) => {
+                    const users = [];
+                    snapshot.forEach(childSnapshot => {
+                        const userData = childSnapshot.val();
+                        users.push({
+                            uid: childSnapshot.key,
+                            displayName: userData.displayName || 'Anonymous',
+                            photoURL: userData.photoURL || '',
+                            totalPoints: userData.totalPoints || 0,
+                            totalReports: userData.totalReports || 0,
+                            totalCleaned: userData.totalCleaned || 0
+                        });
+                    });
+
+                    users.reverse();
+                    displayLeaderboard(users);
+                });
+            } else {
+                const mockUsers = [
+                    { displayName: 'EcoWarrior123', totalPoints: 450, totalReports: 25, totalCleaned: 18, photoURL: '' },
+                    { displayName: 'GreenHero', totalPoints: 380, totalReports: 22, totalCleaned: 14, photoURL: '' },
+                    { displayName: 'CleanCity', totalPoints: 320, totalReports: 18, totalCleaned: 12, photoURL: '' },
+                    { displayName: currentUser ? currentUser.displayName : 'You', totalPoints: userStats.totalPoints || 0, totalReports: userStats.totalReports || 0, totalCleaned: userStats.totalCleaned || 0, photoURL: currentUser ? currentUser.photoURL : '', isCurrentUser: true }
+                ];
+
+                mockUsers.sort((a, b) => b.totalPoints - a.totalPoints);
+                displayLeaderboard(mockUsers);
+            }
+        }
+
+        function displayLeaderboard(users) {
+            const leaderboardList = document.getElementById('leaderboardList');
+
+            users.forEach((user, index) => {
+                const isCurrentUser = currentUser && user.uid === currentUser.uid || user.isCurrentUser;
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+
+                if (isCurrentUser) {
+                    item.style.background = 'rgba(199, 197, 166, 0.1)';
+                    item.style.border = '2px solid var(--color-sage)';
+                }
+
+                item.innerHTML = `
+                    <div class="rank">#${index + 1}</div>
+                    <div class="user-info">
+                        ${user.photoURL ? `<img src="${user.photoURL}" class="user-avatar-small" alt="Avatar">` : `<div class="user-avatar-small" style="background: var(--gradient-secondary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">${user.displayName.charAt(0)}</div>`}
+                        <div>
+                            <div class="username">${user.displayName}${isCurrentUser ? ' 🎯' : ''}</div>
+                            <div class="points">${user.totalReports} reports • ${user.totalCleaned} cleaned</div>
+                        </div>
+                    </div>
+                    <div class="score">${user.totalPoints}</div>
+                `;
+
+                leaderboardList.appendChild(item);
+            });
+        }
+
+        function loadAlerts() {
+            const alertsList = document.getElementById('alertsList');
+            alertsList.innerHTML = '';
+
+            const alerts = JSON.parse(localStorage.getItem('alerts') || '[]');
+
+            if (alerts.length === 0) {
+                alertsList.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-secondary);">No alerts yet</div>';
+                return;
+            }
+
+            alerts.forEach(alert => {
+                const alertElement = document.createElement('div');
+                alertElement.className = `alert-item ${alert.type}`;
+
+                if (alert.actionable) {
+                    alertElement.style.cursor = 'pointer';
+                    alertElement.onclick = () => handleAlertClick(alert);
+                }
+
+                alertElement.innerHTML = `
+                    <div class="alert-title">${alert.title}</div>
+                    <div style="margin: 0.5rem 0; color: var(--text-secondary);">${alert.message}</div>
+                    <div class="alert-time">${new Date(alert.timestamp).toLocaleString()}</div>
+                `;
+
+                alertsList.appendChild(alertElement);
+            });
+        }
+
+        function handleAlertClick(alert) {
+            if (alert.type === 'cleaned' && alert.actionable) {
+                findNearestTrashSpot();
+                switchTab('map-tab', document.querySelector('.nav-item:nth-child(2)'));
+            }
+        }
+
+        function findNearestTrashSpot() {
+            if (!userLocation || trashMarkers.length === 0) return;
+
+            let nearestTrash = null;
+            let minDistance = Infinity;
+
+            trashMarkers.forEach(item => {
+                if (item.data.status === 'reported') {
+                    const distance = calculateDistance(
+                        userLocation.lat, userLocation.lng,
+                        item.data.lat, item.data.lng
+                    );
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestTrash = item;
+                    }
+                }
+            });
+
+            if (nearestTrash) {
+                map.setView([nearestTrash.data.lat, nearestTrash.data.lng], 16);
+                nearestTrash.marker.openPopup();
+            }
+        }
+
+        function addAlert(message, type = 'info') {
+            const alertData = {
+                id: 'alert_' + Date.now(),
+                type: type,
+                title: getAlertIcon(type) + ' ' + message,
+                message: '',
+                timestamp: Date.now(),
+                actionable: false
+            };
+
+            const alerts = JSON.parse(localStorage.getItem('alerts') || '[]');
+            alerts.unshift(alertData);
+            localStorage.setItem('alerts', JSON.stringify(alerts.slice(0, 20)));
+
+            if (document.getElementById('alerts').classList.contains('active')) {
+                loadAlerts();
+            }
+        }
+
+        function getAlertIcon(type) {
+            switch (type) {
+                case 'error': return '❌';
+                case 'warning': return '⚠️';
+                case 'cleaned': return '🎉';
+                default: return 'ℹ️';
+            }
+        }
+
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function getUserId() {
+            let userId = localStorage.getItem('userId');
+            if (!userId) {
+                userId = 'user_' + Date.now();
+                localStorage.setItem('userId', userId);
+            }
+            return userId;
+        }
+
+        // Load alerts when alerts tab is opened
+        document.addEventListener('DOMContentLoaded', function () {
+            const alertsTab = document.querySelector('[onclick*="alerts"]');
+            if (alertsTab) {
+                alertsTab.addEventListener('click', loadAlerts);
+            }
+        });
+
+        // Close modals when clicking outside
+        window.addEventListener('click', function (e) {
+            if (e.target.classList.contains('modal')) {
+                e.target.classList.remove('active');
+            }
+        });
+
+        // Handle window resize for particles
+        window.addEventListener('resize', function () {
+            if (renderer) {
+                onWindowResize();
+            }
+        });
+
+        // Service worker registration for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('data:application/javascript;base64,c2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZnVuY3Rpb24oZXZlbnQpIHsKICBzZWxmLnNraXBXYWl0aW5nKCk7Cn0pOwoKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdhY3RpdmF0ZScsIGZ1bmN0aW9uKGV2ZW50KSB7CiAgc2VsZi5jbGllbnRzLmNsYWltKCk7Cn0pOwoKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGZ1bmN0aW9uKGV2ZW50KSB7CiAgZXZlbnQucmVzcG9uZFdpdGgoZmV0Y2goZXZlbnQucmVxdWVzdCkpOwp9KTs=')
+                    .then(function (registration) {
+                        console.log('SW registered: ', registration);
+                    }).catch(function (registrationError) {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+
+        // Performance optimization: Throttle particle updates on mobile
+        let lastParticleUpdate = 0;
+        const PARTICLE_UPDATE_INTERVAL = window.innerWidth < 768 ? 33 : 16; // 30fps on mobile, 60fps on desktop
+
+        function optimizedRender() {
+            const now = Date.now();
+            if (now - lastParticleUpdate > PARTICLE_UPDATE_INTERVAL) {
+                render();
+                lastParticleUpdate = now;
+            }
+            requestAnimationFrame(animate);
+        }
+
+        // Touch gesture support for better mobile experience
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        document.addEventListener('touchstart', function (e) {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', function (e) {
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = touchEndY - touchStartY;
+
+            // Simple swipe gesture detection
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+                if (deltaX > 0) {
+                    // Swipe right
+                    console.log('Swipe right detected');
+                } else {
+                    // Swipe left
+                    console.log('Swipe left detected');
+                }
+            }
+        }, { passive: true });
+
+        // Accessibility improvements
+        document.addEventListener('keydown', function (e) {
+            // Enable keyboard navigation for tab switching
+            if (e.altKey) {
+                switch (e.key) {
+                    case '1':
+                        switchTab('home', document.querySelector('.nav-item:nth-child(1)'));
+                        break;
+                    case '2':
+                        switchTab('map-tab', document.querySelector('.nav-item:nth-child(2)'));
+                        break;
+                    case '3':
+                        switchTab('leaderboard', document.querySelector('.nav-item:nth-child(3)'));
+                        break;
+                    case '4':
+                        switchTab('alerts', document.querySelector('.nav-item:nth-child(4)'));
+                        break;
+                }
+            }
+        });
+
+        // Battery optimization: Reduce particle count on low battery
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(function (battery) {
+                if (battery.level < 0.2) {
+                    // Reduce particle count when battery is low
+                    console.log('Low battery detected, optimizing performance');
+                }
+            });
+        }
+
+        // Network status awareness
+        window.addEventListener('online', function () {
+            updateApiStatus('connected', 'Back Online');
+            setTimeout(() => {
+                if (apiKeysConfigured) {
+                    updateApiStatus('connected', 'APIs Connected');
+                }
+            }, 2000);
+        });
+
+        window.addEventListener('offline', function () {
+            updateApiStatus('error', 'Offline Mode');
+        });
+
+        // Custom notification system for better user feedback
+        function showNotification(message, type = 'info', duration = 3000) {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: var(--surface-primary);
+                color: var(--text-primary);
+                padding: var(--space-lg);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-lg);
+                backdrop-filter: blur(20px);
+                border-left: 4px solid var(--color-${type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info'});
+                z-index: 10000;
+                animation: slideInRight 0.3s ease-out;
+                max-width: 300px;
+                word-wrap: break-word;
+            `;
+
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease-in forwards';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, duration);
+        }
+
+        // Add slideIn/slideOut animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            
+            @keyframes slideOutRight {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Replace alert() with custom notifications
+        const originalAlert = window.alert;
+        window.alert = function (message) {
+            showNotification(message, 'info');
+        };
+
+        // Initialize app with enhanced error handling
+        window.addEventListener('error', function (e) {
+            console.error('Global error:', e.error);
+            showNotification('An error occurred. Please refresh the page.', 'error');
+        });
+
+        window.addEventListener('unhandledrejection', function (e) {
+            console.error('Unhandled promise rejection:', e.reason);
+            showNotification('Network error. Please check your connection.', 'warning');
+        });
+        function initParticles() {
+            const canvas = document.getElementById('particles-canvas');
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.z = 1000;
+
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                alpha: true,
+                antialias: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0);
+
+            // Create particles
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            const colors = [];
+
+            const particleCount = window.innerWidth < 768 ? 800 : 1200;
+
+            // Color palette based on our theme
+            const colorPalette = [
+                new THREE.Color(0xc7c5a6), // sage
+                new THREE.Color(0xa67c52), // terracotta
+                new THREE.Color(0xf5f0e8), // cream
+                new THREE.Color(0x4a4a4a)  // charcoal
+            ];
+
+            for (let i = 0; i < particleCount; i++) {
+                vertices.push(
+                    (Math.random() - 0.5) * 2000,
+                    (Math.random() - 0.5) * 2000,
+                    (Math.random() - 0.5) * 2000
+                );
+
+                const color = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+                colors.push(color.r, color.g, color.b);
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: Math.random() * 4 + 1,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                sizeAttenuation: true
+            });
+
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            // Mouse move event
+            document.addEventListener('mousemove', onDocumentMouseMove, false);
+            document.addEventListener('touchmove', onDocumentTouchMove, false);
+
+            // Window resize event
+            window.addEventListener('resize', onWindowResize, false);
+
+            animate();
+        }
+
+        function onDocumentMouseMove(event) {
+            mouseX = event.clientX - windowHalfX;
+            mouseY = event.clientY - windowHalfY;
+        }
+
+        function onDocumentTouchMove(event) {
+            if (event.touches.length === 1) {
+                event.preventDefault();
+                mouseX = event.touches[0].pageX - windowHalfX;
+                mouseY = event.touches[0].pageY - windowHalfY;
+            }
+        }
+
+        function onWindowResize() {
+            windowHalfX = window.innerWidth / 2;
+            windowHalfY = window.innerHeight / 2;
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render() {
+            const time = Date.now() * 0.0005;
+
+            camera.position.x += (mouseX - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            particles.rotation.x = time * 0.1;
+            particles.rotation.y = time * 0.2;
+
+            // Subtle movement
+            const positions = particles.geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i + 1] += Math.sin(time + positions[i] * 0.001) * 0.5;
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBuFXAX2hyIL-7boEQFSa0RebPeqf4uIYc",
+            authDomain: "test-e6840.firebaseapp.com",
+            databaseURL: "https://test-e6840-default-rtdb.firebaseio.com",
+            projectId: "test-e6840",
+            storageBucket: "test-e6840.firebasestorage.app",
+            messagingSenderId: "524113818021",
+            appId: "1:524113818021:web:c36e9a1fc5c30cc381384c"
+        };
+
+        // Initialize Firebase
+        let database, storage, auth;
+        let currentUser = null;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            storage = firebase.storage();
+            auth = firebase.auth();
+
+            // Configure Google Auth Provider
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.addScope('profile');
+            provider.addScope('email');
+        } catch (error) {
+            console.log("Firebase not configured, using demo mode");
+        }
+
+        // AI API Configuration
+        let OPENROUTER_API_KEY = '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';
+        let GEMINI_API_KEY = 'AIzaSyAmei6RqPdLYC6tyHWllajLSNhqjUplkCw';
+        let apiKeysConfigured = false;
+
+        // Global variables
+        let map;
+        let userLocation;
+        let currentMarker;
+        let trashMarkers = [];
+        let userStats = {
+            totalReports: 0,
+            totalCleaned: 0,
+            totalPoints: 0
+        };
+        let loadingProgress = 0;
+        let currentUploadedImage = null;
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function () {
+            initParticles();
+            loadApiKeys();
+            startLoadingSequence();
+        });
+
+        // API Key Management
+        function loadApiKeys() {
+            document.getElementById('configPanel').style.display = 'none';
+            saveApiKeys();
+        }
+
+        function saveApiKeys() {
+            const openrouterKey = OPENROUTER_API_KEY;
+            const geminiKey = GEMINI_API_KEY;
+
+            if (!openrouterKey || !geminiKey) {
+                alert('Please enter both API keys');
+                return;
+            }
+
+            OPENROUTER_API_KEY = openrouterKey;
+            GEMINI_API_KEY = geminiKey;
+
+            apiKeysConfigured = true;
+            updateApiStatus('connected', 'APIs Connected');
+
+            // Hide config panel after successful save
+            document.getElementById('configPanel').style.display = 'none';
+
+            alert('API keys saved successfully!');
+        }
+
+        function updateApiStatus(status, text) {
+            const statusElement = document.getElementById('apiStatus');
+            statusElement.textContent = text;
+            statusElement.className = `api-status ${status}`;
+        }
+
+        // Loading sequence
+        function startLoadingSequence() {
+            const loadingTasks = [
+                () => new Promise(resolve => {
+                    setTimeout(() => {
+                        updateLoadingProgress(20);
+                        resolve();
+                    }, 500);
+                }),
+                () => new Promise(resolve => {
+                    checkAuthState();
+                    updateLoadingProgress(40);
+                    resolve();
+                }),
+                () => new Promise(resolve => {
+                    initializeMap();
+                    updateLoadingProgress(60);
+                    resolve();
+                }),
+                () => new Promise(resolve => {
+                    setTimeout(() => {
+                        requestLocationPermission();
+                        updateLoadingProgress(80);
+                        resolve();
+                    }, 500);
+                }),
+                () => new Promise(resolve => {
+                    setTimeout(() => {
+                        loadTrashData();
+                        updateLoadingProgress(100);
+                        resolve();
+                    }, 500);
+                })
+            ];
+
+            loadingTasks.reduce((promise, task) =>
+                promise.then(task), Promise.resolve()
+            ).then(() => {
+                setTimeout(() => {
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    if (currentUser) {
+                        document.getElementById('mainApp').style.display = 'block';
+                        initializeApp();
+                    } else {
+                        document.getElementById('authScreen').style.display = 'flex';
+                    }
+                }, 1000);
+            });
+        }
+
+        function updateLoadingProgress(progress) {
+            loadingProgress = progress;
+            const bar = document.querySelector('.loading-bar');
+            bar.style.width = progress + '%';
+        }
+
+        // Authentication
+        function checkAuthState() {
+            if (auth) {
+                auth.onAuthStateChanged((user) => {
+                    if (user) {
+                        currentUser = user;
+                        updateUserUI();
+                    } else {
+                        currentUser = null;
+                    }
+                });
+            }
+        }
+
+    </script>
+</body>
+
+</html>
